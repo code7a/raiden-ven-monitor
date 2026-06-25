@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/raiden.png" width="220">
+</p>
+
 # Project Raiden
 Lightweight real-time AI log analysis and event notification for Illumio VEN
 
