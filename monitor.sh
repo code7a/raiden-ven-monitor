@@ -324,10 +324,18 @@ if [[ $(len "$JSON_OUT") -gt $MAX_BYTES ]]; then
     '{s:$s,c:($c|tonumber),i:$i,r:$r}')
 fi
 
+while [[ $(printf '%s' "$JSON_OUT" | wc -c | tr -d ' ') -gt 200 ]]; do
+    ISSUE=$(trim "$ISSUE" $((${#ISSUE} - 10)))
+    RECOMMENDATION=$(trim "$RECOMMENDATION" $((${#RECOMMENDATION} - 10)))
+    JSON_OUT=$(build_json)
+
+    [[ ${#ISSUE} -lt 30 ]] && break
+done
+
 EXT_DS="$JSON_OUT"
 
 PAYLOAD=$(jq -n \
-  --argjson ds "$EXT_DS" \
+  --arg ds "$EXT_DS" \
   '{external_data_set:$ds,external_data_reference:"Raiden Wins!"}')
 
 debug "JSON_OUT bytes: $(printf '%s' "$JSON_OUT" | wc -c | tr -d ' ')"
@@ -335,6 +343,12 @@ debug "PAYLOAD bytes: $(printf '%s' "$PAYLOAD" | wc -c | tr -d ' ')"
 debug "Payload external_data_set bytes: $(printf '%s' "$EXT_DS" | wc -c | tr -d ' ')"
 
 echo "PUSHING TO PCE..."
+
+if [[ "$DEBUG" == "1" ]]; then
+    echo "========== FINAL PAYLOAD =========="
+    echo "$PAYLOAD" | jq .
+    echo "==================================="
+fi
 
 HTTP_CODE=$(
 curl -sk \
