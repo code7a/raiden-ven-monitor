@@ -12,8 +12,17 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 echo ""
-read -p "Enter Illumio API Key: " API_KEY
-read -s -p "Enter Illumio API Secret: " API_SECRET
+API_KEY="${API_KEY:-}"
+API_SECRET="${API_SECRET:-}"
+
+if [[ -z "$API_KEY" ]]; then
+  read -p "Enter Illumio API Key: " API_KEY
+fi
+
+if [[ -z "$API_SECRET" ]]; then
+  read -s -p "Enter Illumio API Secret: " API_SECRET
+  echo ""
+fi
 echo ""
 
 if [[ -z "$API_KEY" || -z "$API_SECRET" ]]; then
@@ -49,7 +58,11 @@ cp ./monitor.sh /opt/illumio-ai-monitor/monitor.sh
 chmod +x /opt/illumio-ai-monitor/monitor.sh
 
 echo "[*] Setting up cron (every 10 minutes)..."
-(crontab -l 2>/dev/null | grep -v monitor.sh; echo "*/10 * * * * /opt/illumio-ai-monitor/monitor.sh >/dev/null 2>&1") | crontab -
+CRON_JOB="*/10 * * * * /opt/illumio-ai-monitor/monitor.sh >/dev/null 2>&1"
+(crontab -l 2>/dev/null || true) | grep -v monitor.sh > /tmp/cron.tmp
+echo "$CRON_JOB" >> /tmp/cron.tmp
+crontab /tmp/cron.tmp
+rm -f /tmp/cron.tmp
 
 echo ""
 echo "Install complete."
