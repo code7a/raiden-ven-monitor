@@ -90,42 +90,52 @@ JSON_FILE="$OUTDIR/latest.json"
 printf '%s\n' \
 'You are a strict JSON log analysis engine.' \
 '' \
-'YOU MUST ONLY RETURN valid JSON. No markdown, no extra text.' \
-'Output MUST start with { and end with }.' \
+'YOU MUST ONLY RETURN valid JSON.' \
+'No markdown.' \
+'No code fences.' \
+'No explanations.' \
+'Output must start with { and end with }.' \
 '' \
 'OUTPUT FORMAT:' \
 '{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.0,"issue":"","recommendation":""}' \
 '' \
-'Severity MUST be exactly one of: low, medium, high, critical' \
+'Severity MUST be exactly one of: low, medium, high, critical.' \
 '' \
 'SEVERITY RULES:' \
 '- critical = confirmed compromise or active attack' \
-'- high = enforcement or security failure' \
-'- medium = repeated operational failure' \
-'- low = isolated or recoverable issue' \
+'- high = enforcement failure or major service impact' \
+'- medium = repeated operational failures' \
+'- low = isolated issue, warning, or normal operation' \
 '' \
 'LOG INTERPRETATION RULES:' \
 '- ERROR indicates a problem' \
 '- WARN indicates a potential issue' \
 '- FAIL indicates failure' \
-'- INFO is normal unless failures repeat' \
-'- PASS means success and is not a failure' \
-'- If multiple ERROR events exist, treat as a persistent issue even if recovery messages appear' \
-'- If ANY ERROR messages are present, issue MUST describe the most important error even if recovery occurs' \
+'- INFO is normal operation' \
+'- PASS indicates success' \
+'- Recovery messages reduce severity when appropriate' \
 '' \
 'STRICT OUTPUT RULES:' \
-'- If ANY ERROR is present, issue MUST NOT be empty' \
-'- If ANY ERROR is present, recommendation MUST NOT be empty' \
-'- issue MUST NOT be empty if severity is not low' \
-'- recommendation MUST NOT be empty if severity is not low' \
-'- issue max 120 chars' \
-'- recommendation max 160 chars' \
-'- do not include full file paths' \
-'- do not include stack traces' \
-'- prefer summarized root cause, not raw logs' \
+'- issue must be a short human readable summary' \
+'- recommendation must be a short human readable action' \
+'- NEVER copy log lines' \
+'- NEVER repeat raw ERROR messages' \
+'- NEVER include INFO, WARN, ERROR, or FAIL text verbatim' \
+'- NEVER include timestamps from logs' \
+'- NEVER include stack traces' \
+'- NEVER include file paths' \
+'- NEVER include multiple sentences in issue' \
+'- issue maximum 80 characters' \
+'- recommendation maximum 120 characters' \
+'- summarize root cause only' \
 '' \
-'If no meaningful issues:' \
-'{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.0,"issue":"No actionable issue detected","recommendation":"No action required"}' \
+'GOOD EXAMPLES:' \
+'{"timestamp":"'"$AI_TS"'","severity":"medium","confidence":0.8,"issue":"Firewall policy generation repeatedly failing","recommendation":"Verify VEN connectivity and policy synchronization"}' \
+'' \
+'{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"No actionable issue detected","recommendation":"No action required"}' \
+'' \
+'If logs show normal operation or successful recovery:' \
+'{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"No actionable issue detected","recommendation":"No action required"}' \
 '' \
 'LOGS:' \
 > "$RAW_INPUT"
@@ -218,6 +228,9 @@ RECOMMENDATION=$(jq -r '.recommendation // ""' "$JSON_FILE")
 
 ISSUE=$(echo "$ISSUE" | sed -E 's/<[^>]+>//g;s/[<>]//g')
 RECOMMENDATION=$(echo "$RECOMMENDATION" | sed -E 's/<[^>]+>//g;s/[<>]//g')
+
+ISSUE=$(printf '%s' "$ISSUE" | tr '\n' ' ' | cut -c1-80)
+RECOMMENDATION=$(printf '%s' "$RECOMMENDATION" | tr '\n' ' ' | cut -c1-120)
 
 # -----------------------------
 # DETERMINISTIC FALLBACKS FROM LOG CONTENT
@@ -314,17 +327,33 @@ fi
 EXT_DS="$JSON_OUT"
 
 PAYLOAD=$(jq -n \
-  --arg ds "$EXT_DS" \
+  --argjson ds "$EXT_DS" \
   '{external_data_set:$ds,external_data_reference:"Raiden Wins!"}')
 
+debug "JSON_OUT bytes: $(printf '%s' "$JSON_OUT" | wc -c | tr -d ' ')"
+debug "PAYLOAD bytes: $(printf '%s' "$PAYLOAD" | wc -c | tr -d ' ')"
 debug "Payload external_data_set bytes: $(printf '%s' "$EXT_DS" | wc -c | tr -d ' ')"
 
 echo "PUSHING TO PCE..."
 
-curl -sk -X PUT \
+HTTP_CODE=$(
+curl -sk \
+  -o /tmp/illumio-put-response.json \
+  -w "%{http_code}" \
+  -X PUT \
   -u "${API_KEY}:${API_SECRET}" \
   -H "Content-Type: application/json" \
   "$PCE_URL" \
   -d "$PAYLOAD"
+)
+
+echo "HTTP_CODE=$HTTP_CODE"
+
+if [[ "$DEBUG" == "1" ]]; then
+    echo "========== PCE RESPONSE =========="
+    cat /tmp/illumio-put-response.json
+    echo
+    echo "=================================="
+fi
 
 echo "DONE"
