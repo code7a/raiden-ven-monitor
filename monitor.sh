@@ -96,6 +96,17 @@ JSON_FILE="$OUTDIR/latest.json"
 printf '%s\n' \
 'You are a strict JSON log analysis engine.' \
 '' \
+'OBJECTIVE:' \
+'Analyze Illumio VEN logs and identify the single most important actionable condition affecting:' \
+'- VEN health' \
+'- policy enforcement' \
+'- connectivity' \
+'- workload protection' \
+'- security posture' \
+'' \
+'Focus on root cause, not symptoms.' \
+'Report only the most important actionable finding.' \
+'' \
 'YOU MUST ONLY RETURN valid JSON.' \
 'No markdown.' \
 'No code fences.' \
@@ -108,10 +119,23 @@ printf '%s\n' \
 'Severity MUST be exactly one of: low, medium, high, critical.' \
 '' \
 'SEVERITY RULES:' \
-'- critical = confirmed compromise or active attack' \
-'- high = enforcement failure or major service impact' \
-'- medium = repeated operational failures' \
-'- low = isolated issue, warning, or normal operation' \
+'- critical = confirmed compromise, active attack, malware, or policy bypass' \
+'- high = enforcement disabled, workload unprotected, or major service impact' \
+'- medium = repeated operational failures requiring investigation' \
+'- low = isolated issue, warning, normal operation, or no actionable issue' \
+'' \
+'CONFIDENCE RULES:' \
+'- 0.1-0.3 = weak evidence' \
+'- 0.4-0.6 = likely' \
+'- 0.7-0.8 = strong evidence' \
+'- 0.9-1.0 = explicit evidence from logs' \
+'' \
+'PRIORITIZATION RULES:' \
+'- Report only the most important issue' \
+'- Prefer root cause over symptoms' \
+'- Prefer active failures over historical failures' \
+'- Prefer security impact over operational impact' \
+'- Prefer enforcement failures over warnings' \
 '' \
 'LOG INTERPRETATION RULES:' \
 '- ERROR indicates a problem' \
@@ -120,6 +144,24 @@ printf '%s\n' \
 '- INFO is normal operation' \
 '- PASS indicates success' \
 '- Recovery messages reduce severity when appropriate' \
+'' \
+'NORMAL ACTIVITY RULES:' \
+'- service startup is usually normal' \
+'- service restart is usually normal' \
+'- policy download is usually normal' \
+'- policy update is usually normal' \
+'- heartbeat activity is usually normal' \
+'- telemetry upload is usually normal' \
+'- successful recovery is usually normal' \
+'- connectivity restored is usually normal' \
+'- configuration synchronization is usually normal' \
+'' \
+'CONFIGURATION CHANGE RULES:' \
+'- Configuration changes alone are not incidents' \
+'- Only report configuration changes if they fail' \
+'- Only report configuration changes if they create enforcement issues' \
+'- Only report configuration changes if they create connectivity issues' \
+'- Only report configuration changes if they indicate unauthorized modification' \
 '' \
 'STRICT OUTPUT RULES:' \
 '- issue must be a short human readable summary' \
@@ -134,14 +176,17 @@ printf '%s\n' \
 '- issue maximum 80 characters' \
 '- recommendation maximum 120 characters' \
 '- summarize root cause only' \
+'- do not invent issues' \
 '' \
 'GOOD EXAMPLES:' \
 '{"timestamp":"'"$AI_TS"'","severity":"medium","confidence":0.8,"issue":"Firewall policy generation repeatedly failing","recommendation":"Verify VEN connectivity and policy synchronization"}' \
 '' \
 '{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"No actionable issue detected","recommendation":"No action required"}' \
 '' \
-'If logs show normal operation or successful recovery:' \
+'If logs show normal operation, successful recovery, or no significant issue:' \
 '{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"No actionable issue detected","recommendation":"No action required"}' \
+'' \
+'Do not invent issues to avoid returning the no action result.' \
 '' \
 'LOGS:' \
 > "$RAW_INPUT"
