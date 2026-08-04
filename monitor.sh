@@ -23,6 +23,12 @@ set -u
 ACTIVATION_CFG="/opt/illumio_ven_data/etc/agent_activation.cfg"
 AGENT_CFG="/opt/illumio_ven_data/etc/agent_id.cfg"
 
+for i in {1..60}; do
+    [[ -f "$ACTIVATION_CFG" ]] && [[ -f "$AGENT_CFG" ]] && break
+    echo "Waiting for VEN registration..."
+    sleep 10
+done
+
 PCE_HOST=$(awk -F': ' '/masterconfig_server/ {print $2}' "$ACTIVATION_CFG" | cut -d: -f1)
 PCE_PORT=$(awk -F': ' '/masterconfig_server/ {print $2}' "$ACTIVATION_CFG" | cut -d: -f2)
 
@@ -145,9 +151,27 @@ cat "$OUTFILE" >> "$RAW_INPUT"
 # -----------------------------
 # RUN MODEL
 # -----------------------------
-timeout 120 ollama run qwen2.5:1.5b --nowordwrap < "$RAW_INPUT" > "$RAW_MODEL" 2>/dev/null || {
-  JSON='{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"analysis_failed","recommendation":"Monitor logs"}'
-}
+export HOME=/root
+
+if ! pgrep -x ollama >/dev/null 2>&1; then
+    echo "Starting Ollama..."
+    nohup /usr/local/bin/ollama serve >/var/log/ollama.log 2>&1 &
+fi
+
+for i in {1..30}; do
+    ollama list >/dev/null 2>&1 && break
+    echo "Waiting for Ollama..."
+    sleep 2
+done
+
+if ! ollama list >/dev/null 2>&1; then
+    echo "Ollama API unavailable"
+    JSON='{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"ollama_unavailable","recommendation":"Verify Ollama service"}'
+else
+    timeout 120 ollama run qwen2.5:1.5b --nowordwrap < "$RAW_INPUT" > "$RAW_MODEL" 2>/dev/null || {
+        JSON='{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"analysis_failed","recommendation":"Monitor logs"}'
+    }
+fi
 
 # -----------------------------
 # JSON EXTRACTION
@@ -349,6 +373,12 @@ if [[ "$DEBUG" == "1" ]]; then
     echo "$PAYLOAD" | jq .
     echo "==================================="
 fi
+
+echo "========== AUTH DEBUG =========="
+echo "API_KEY length=${#API_KEY}"
+echo "API_SECRET length=${#API_SECRET}"
+echo "PCE_URL=$PCE_URL"
+echo "================================"
 
 HTTP_CODE=$(
 curl -sk \
