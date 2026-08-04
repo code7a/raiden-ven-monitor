@@ -48,7 +48,15 @@ if ! pgrep -x ollama >/dev/null 2>&1; then
 fi
 
 for i in {1..30}; do
-    ollama list >/dev/null 2>&1 && break
+    if ollama list >/dev/null 2>&1; then
+        break
+    fi
+
+    if [[ $i -eq 30 ]]; then
+        echo "ERROR: Ollama failed to start"
+        exit 1
+    fi
+
     echo "[*] Waiting for Ollama..."
     sleep 2
 done
@@ -75,12 +83,25 @@ echo "[*] Installing monitor script..."
 cp ./monitor.sh /opt/illumio-ai-monitor/monitor.sh
 chmod +x /opt/illumio-ai-monitor/monitor.sh
 
+echo "[*] Testing monitor script..."
+
+if DEBUG=1 /opt/illumio-ai-monitor/monitor.sh; then
+    echo "[*] monitor.sh test passed"
+else
+    echo "ERROR: monitor.sh failed initial test"
+    exit 1
+fi
+
 echo "[*] Setting up cron (every 10 minutes)..."
-CRON_JOB="*/10 * * * * /opt/illumio-ai-monitor/monitor.sh >/dev/null 2>&1"
-(crontab -l 2>/dev/null || true) | grep -v monitor.sh > /tmp/cron.tmp
-echo "$CRON_JOB" >> /tmp/cron.tmp
-crontab /tmp/cron.tmp
-rm -f /tmp/cron.tmp
+
+cat >/etc/cron.d/illumio-ai-monitor <<'EOF'
+*/10 * * * * root /opt/illumio-ai-monitor/monitor.sh >> /var/log/illumio-ai-monitor.log 2>&1
+EOF
+
+chmod 644 /etc/cron.d/illumio-ai-monitor
+
+systemctl enable crond >/dev/null 2>&1 || true
+systemctl restart crond
 
 echo ""
 echo "Install complete."
