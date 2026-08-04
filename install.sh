@@ -39,6 +39,20 @@ if ! command -v ollama >/dev/null 2>&1; then
 fi
 
 echo "[*] Pulling model..."
+
+export HOME=/root
+
+if ! pgrep -x ollama >/dev/null 2>&1; then
+    echo "[*] Starting Ollama..."
+    nohup /usr/local/bin/ollama serve >/var/log/ollama.log 2>&1 &
+fi
+
+for i in {1..30}; do
+    ollama list >/dev/null 2>&1 && break
+    echo "[*] Waiting for Ollama..."
+    sleep 2
+done
+
 ollama pull qwen2.5:1.5b
 
 echo "[*] Creating directories..."
