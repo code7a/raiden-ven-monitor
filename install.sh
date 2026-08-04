@@ -59,6 +59,10 @@ echo "[*] Creating directories..."
 mkdir -p /etc/illumio-ai-monitor
 mkdir -p /opt/illumio-ai-monitor/output
 
+echo "INSTALL DEBUG:"
+echo "API_KEY length=${#API_KEY}"
+echo "API_SECRET length=${#API_SECRET}"
+
 echo "[*] Writing API config..."
 cat > /etc/illumio-ai-monitor/api.conf <<EOF
 API_KEY=$API_KEY

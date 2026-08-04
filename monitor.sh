@@ -159,12 +159,12 @@ if ! pgrep -x ollama >/dev/null 2>&1; then
 fi
 
 for i in {1..30}; do
-    ollama list >/dev/null 2>&1 && break
+    curl -fs http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
     echo "Waiting for Ollama..."
     sleep 2
 done
 
-if ! ollama list >/dev/null 2>&1; then
+if ! curl -fs http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     echo "Ollama API unavailable"
     JSON='{"timestamp":"'"$AI_TS"'","severity":"low","confidence":0.2,"issue":"ollama_unavailable","recommendation":"Verify Ollama service"}'
 else
